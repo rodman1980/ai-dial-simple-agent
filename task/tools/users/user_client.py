@@ -86,6 +86,7 @@ class UserClient:
             surname: Optional[str] = None,
             email: Optional[str] = None,
             gender: Optional[str] = None,
+            limit: Optional[int] = None,
     ) -> str:
         """Search for users by optional filter criteria.
         
@@ -121,7 +122,25 @@ class UserClient:
         if response.status_code == 200:
             data = response.json()
             # Log match count for debugging/monitoring purposes
-            print(f"Get {len(data)} users successfully")
+            total = len(data)
+            print(f"Get {total} users successfully")
+
+            # If a limit is provided, trim the results to avoid large context
+            if limit is not None:
+                try:
+                    limit_val = int(limit)
+                except Exception:
+                    raise Exception("'limit' must be an integer")
+                if limit_val < 1:
+                    raise Exception("'limit' must be >= 1")
+                # enforce safe upper bound
+                if limit_val > 100:
+                    limit_val = 100
+
+                if total > limit_val:
+                    data = data[:limit_val]
+                    print(f"Trimmed users to {limit_val} results to protect context")
+
             return self.__users_to_string(data)
 
         # Propagate HTTP error to caller

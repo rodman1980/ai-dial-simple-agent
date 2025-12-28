@@ -44,6 +44,12 @@ class SearchUsersTool(BaseUserServiceTool):
                 "gender": {
                     "type": "string",
                     "description": "Filter by user's gender"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of users to return (helps avoid overloading context)",
+                    "minimum": 1,
+                    "maximum": 25
                 }
             },
             "required": []
@@ -64,8 +70,22 @@ class SearchUsersTool(BaseUserServiceTool):
             graceful LLM integration. The user service client handles HTTP errors and formatting.
         """
         try:
-            # Delegate to user_client with unpacked filter arguments
-            return self._user_client.search_users(**arguments)
+            # Validate optional 'limit' argument if provided and coerce to int
+            kwargs = dict(arguments)
+            if "limit" in kwargs and kwargs["limit"] is not None:
+                try:
+                    limit_val = int(kwargs["limit"])
+                except Exception:
+                    return "Error: 'limit' must be an integer"
+                if limit_val < 1:
+                    return "Error: 'limit' must be >= 1"
+                # enforce an upper bound to protect context
+                if limit_val > 100:
+                    limit_val = 100
+                kwargs["limit"] = limit_val
+
+            # Delegate to user_client with validated arguments
+            return self._user_client.search_users(**kwargs)
         except Exception as e:
             # Return error as string to maintain consistent tool output contract
             return f"Error while searching users: {str(e)}"
